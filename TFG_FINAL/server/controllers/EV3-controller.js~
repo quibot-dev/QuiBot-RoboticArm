@@ -1,0 +1,360 @@
+// Funcions que s'executaran segons la peticio a la url de la api (definides a routes)
+const EV3_knex = require('../db_EV3')
+const usuaris_knex = require('../db_usuaris')
+
+
+// Communicacio EV3
+exports.nou = async (req, res) => {
+
+    //EV3 envia al servidor el seu nom (unic)
+
+    EV3_knex.from('EV3').where('Nom', req.body.Nom)
+        .then((EV3) => {
+            console.log(req.body.Nom)
+            if (EV3.length === 0) //Nou EV3, crear record EV3, extreure id i crear moviments_id + Historial_EV3__id
+            {
+                EV3_knex('EV3')
+                    .insert({
+                        'Connectat': 1,
+                        'Nom': req.body.Nom,
+                        'Disponible': 1,
+                        'Ultima_Petició': EV3_knex.fn.now()
+                    })
+                    .then(() => {
+                        console.log('Creacio EV3 correctament')
+                        EV3_knex('Historic_EV3')
+                            .insert({
+                                'Accio': 'Nou EV3 detectat al sistema',
+                                'Correu': 'Servidor',
+                                'Nom': req.body.Nom,
+                            })
+                            .then(() => {
+                                console.log('Historic EV3 creat correctament')
+                                EV3_knex('Moviments_EV3')
+                                    .insert({
+                                        'Nom': req.body.Nom,
+                                        'Manual': 0,
+                                        'Automatic': 0,
+                                        'Pipeta': 0,
+                                        'Pinça': 0,
+                                        'Verd': 0,
+                                        'Lila': 0,
+                                        'Tronja': 0,
+                                        'llista_moviments': [],
+					'cx': req.body.cx
+
+                                    })
+                                    .then(() => {
+                                        console.log({ message: 'Creacio Moviments EV3' })
+                                        res.json({ msg: "Registrat" })
+                                    })
+                                    .catch(err => {
+                                        console.log({ message: 'Error Taula Moviments EV3', error: err })
+                                    })
+
+                            })
+                            .catch(err => {
+                                console.log({ message: 'Error Taula Historic EV3', error: err })
+                            })
+                    })
+                    .catch(err => {
+                        console.log({ message: 'Error inserint EV3 a la taula', error: err })
+                    })
+            }
+            else { //ja tenim un EV3 amb aquest nom
+                console.log('Ja existeix un EV3 amb aquest nom, no es poden repetir els noms dels robots')
+                res.json({ msg: "OK" })
+            }
+
+        })
+        .catch(err => {
+            console.log(err)
+        })
+
+}
+// Pagina EV3 
+exports.desconnectats = async (req, res) => {
+    EV3_knex.from('EV3').select('*').where('Connectat', 0)
+        .then(EV3data => {
+            res.json(EV3data.length)
+        })
+        .catch(err => {
+            console.log({ message: 'Error counting students', error: err })
+        })
+}
+
+exports.connectats = async (req, res) => {
+    EV3_knex.from('EV3').select('*').where('Connectat', 1)
+        .then(EV3data => {
+            res.json(EV3data.length)
+        })
+        .catch(err => {
+            console.log({ message: 'Error counting students', error: err })
+        })
+}
+
+exports.total = async (req, res) => {
+    EV3_knex.from('EV3').select('*')
+        .then(EV3data => {
+            res.json(EV3data)
+        })
+        .catch(err => {
+            console.log({ message: 'Error counting students', error: err })
+        })
+}
+
+exports.disponibles = async (req, res) => {
+    EV3_knex.from('EV3').select('*').where('Disponible', 1)
+        .then(EV3data => {
+            res.json(EV3data.length)
+        })
+        .catch(err => {
+            console.log({ message: 'Error counting students', error: err })
+        })
+}
+
+exports.disponibles_connectats = async (req, res) => {
+    EV3_knex.from('EV3').select('*').where({ 'Disponible': 1, 'Connectat': 1, 'Usuari_Id': null })
+        .then(EV3data => {
+            res.json(EV3data)
+        })
+        .catch(err => {
+            console.log({ message: 'Error counting students', error: err })
+        })
+}
+
+
+//Historic EV3
+
+exports.HistoricTotal = async (req, res) => {
+    EV3_knex.from('Historic_EV3').select('*')
+        .then(Historic => {
+            res.json(Historic)
+        })
+        .catch(err => {
+            res.json({ message: 'Error cercant Usuaris', error: err })
+        })
+}
+
+exports.HistoricEV3 = async (req, res) => {
+    EV3_knex.from('Historic_EV3').where('Nom', req.body.Nom)
+        .then(Historic => {
+            res.json(Historic)
+        })
+        .catch(err => {
+            res.json({ message: 'Error cercant Usuaris', error: err })
+        })
+}
+
+exports.infoEV3 = async (req, res) => {
+    EV3_knex.from('EV3').where('id', req.body.id)
+        .then(Info => {
+            res.json(Info)
+        })
+        .catch(err => {
+            res.json({ message: 'Error cercant Usuaris', error: err })
+        })
+}
+
+exports.editarEV3 = async (req, res) => {
+    EV3_knex.from('EV3').select('*').where('id', req.body.id).update({
+        'Nom': req.body.Nom,
+        'Connectat': req.body.Connectat,
+        'Disponible': req.body.Disponible,
+        'Usuari_Id': req.body.Usuari_Id,
+        'Ultima_Peticio': req.body.Ultima_Peticio,
+    })
+        .then(() => {
+            console.log('Informació EV3 Actualitzada')
+            EV3_knex.from('Historic_EV3')
+                .insert({
+                    Accio: 'Nova configuració al EV3: ' + req.body.Nom,
+                    Correu: req.body.user_email,
+                    Nom: req.body.Nom,
+                })
+                .then(() => {
+                    console.log(' EV3 editat + Update Historic')
+                    res.json({ message: 'Usuari Editat' })
+                })
+                .catch(err => {
+                    res.json({ message: 'Error cercant Usuaris', error: err })
+                })
+
+        })
+        .catch(err => {
+            res.json({ message: 'Error cercant Usuaris', error: err })
+        })
+}
+
+exports.eliminarEV3 = async (req, res) => {
+    EV3_knex.from('EV3').where('id', req.body.id)
+        .del()
+        .then(() => {
+            console.log('Informació Usuari Actualitzada')
+            EV3_knex.from('Historic_EV3')
+                .insert({
+                    Accio: 'EV3 eliminat: ' + req.body.Nom,
+                    Correu: req.body.user_email,
+                    Nom: req.body.Nom
+                })
+                .then(() => {
+                    console.log(' EV3 eliminat + Update Historic')
+                    EV3_knex.from('Moviments_EV3').where('Nom', req.body.Nom)
+                        .del()
+                        .then(() => {
+                            console.log('Moviments eliminats')
+                            res.json({ message: 'EV3 Editat' })
+                        })
+
+                })
+                .catch(err => {
+                    res.json({ message: 'Error cercant EV3', error: err })
+                })
+
+
+        })
+        .catch(err => {
+            console.log({ message: `Error eliminant EV3`, error: err })
+        })
+
+}
+
+
+
+
+exports.esperantVincularse = async (req, res) => {
+    EV3_knex.from('EV3').where('Disponible', true).whereNotNull('Usuari_Id')
+        .then(Info => {
+            res.json(Info)
+        })
+        .catch(err => {
+            res.json({ message: 'Error cercant Usuaris', error: err })
+        })
+}
+
+
+exports.vinculats = async (req, res) => {
+    EV3_knex.from('EV3').select('*').where('Disponible', false).whereNotNull('Usuari_Id')
+        .then(EV3data => {
+            res.json(EV3data)
+        })
+        .catch(err => {
+            console.log({ message: 'Error counting students', error: err })
+        })
+}
+
+exports.nullUser = async (req, res) => {
+
+    EV3_knex.from('EV3').select('*').where({ 'Nom': req.body.Nom }).update({
+        'Usuari_Id': null
+    })
+        .then(userData => {
+            res.json(userData)
+        })
+        .catch(err => {
+            console.log({ message: 'Error retrieving students', error: err })
+        })
+
+}
+
+
+exports.nouEstat = async (req, res) => {
+    EV3_knex.from('EV3').where('id', req.body.id_EV3)
+        .then(Info => {
+            const Nom = Info[0].Nom
+            EV3_knex.from('Moviments_EV3').select('*').where({ 'Nom': Nom }).update({
+                'Manual': req.body.Manual,
+                'Automatic': req.body.Automatic,
+                'Pipeta': req.body.Pipeta,
+                'Pinça': req.body.Pinça,
+                'Verd': req.body.Verd,
+                'Lila': req.body.Lila,
+                'Tronja': req.body.Tronja,
+                'llista_moviments': req.body.llista_moviments,
+		'cx': req.body.cx
+            })
+                .then(() => {
+                    usuaris_knex.from('Historial_Usuaris').insert({
+                        Accio: 'Esta jugant amb el robot: ' + Nom,
+                        Correu: req.body.user_email,
+                    })
+                        .then(() => {
+                            EV3_knex.from('Historic_EV3').insert({
+                                Accio: 'Estudiant: ' + req.body.user_email + 'Jugant amb el robot',
+                                Correu: req.body.user_email,
+                                Nom: Nom
+                            })
+                                .then(() => {
+                                    console.log('Actualitzat histori EV3')
+                                    res.json('Updated')
+                                })
+                                .catch(err => {
+                                    console.log({ message: 'Error actualitzant historic usuaris', error: err })
+
+                                })
+
+                        })
+                        .catch(err => {
+                            console.log({ message: 'Error retrieving students', error: err })
+                        })
+                })
+                .catch(err => {
+                    console.log({ message: 'Error retrieving students', error: err })
+                })
+
+        })
+        .catch(err => {
+            res.json({ message: 'Error cercant Usuaris', error: err })
+        })
+}
+
+exports.Estat = async (req, res) => {
+
+    EV3_knex.from('Moviments_EV3').select('*').where({ 'Nom': req.body.Nom })
+        .then(EV3Data => {
+            res.json(EV3Data)
+        })
+        .catch(err => {
+            console.log({ message: 'Error retrieving students', error: err })
+        })
+}
+
+exports.Fi = async (req, res) => {
+    console.log('fi')
+    EV3_knex.from('Moviments_EV3').select('*').where({ 'Nom': req.body.Nom }).update({
+        'Manual': 0,
+        'Automatic': 0,
+        'Pipeta': 0,
+        'Pinça': 0,
+        'Verd': 0,
+        'Lila': 0,
+        'Tronja': 0,
+        'llista_moviments': [],
+	'cx': 0
+    })
+        .then(EV3Data => {
+            res.json(EV3Data)
+        })
+        .catch(err => {
+            console.log({ message: 'Error retrieving students', error: err })
+        })
+
+}
+
+exports.treballant = async (req, res) => {
+    EV3_knex.from('EV3').where('id', req.body.id_EV3)
+        .then(Info => {
+            const Nom = Info[0].Nom
+            EV3_knex.from('Moviments_EV3').select('*').where({ 'Nom': Nom })
+                .then(Info => {
+                    let resposta = { Manual: Info[0].Manual, Automatic: Info[0].Automatic }
+                    res.json(resposta)
+                })
+                .catch(err => {
+                    console.log({ message: 'Error retrieving students', error: err })
+                })
+        })
+        .catch(err => {
+            res.json({ message: 'Error cercant Usuaris', error: err })
+        })
+}
