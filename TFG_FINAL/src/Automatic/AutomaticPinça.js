@@ -17,7 +17,7 @@ function AutomaticPinça({ user }) {
             Manual: 0,
             Automatic: 1,
             Pinça : 1,
-            llista_moviments: ""
+            
         })
         .then(() => setFase("treballant"))
         .catch(error => console.error(`Error: ${error}`));
@@ -31,7 +31,7 @@ function AutomaticPinça({ user }) {
             Manual: 0,
             Automatic: 0,
             Pinça: 0,
-            llista_moviments: ""
+            
         })
         .then(() => axios.post('/api/EV3/vision/stop'))
         .then(() => setFase("configuracio"))
